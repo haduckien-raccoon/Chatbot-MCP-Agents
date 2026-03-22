@@ -477,7 +477,7 @@ def get_ai_team_answer(message: str) -> str:
         lines.append("Nếu bạn muốn, mình có thể đi sâu 1 dự án cụ thể (ASR/TTS, video search, recommendation, video summary, chatbot).")
         return "\n".join(lines)
 
-    lines = ["Theo dữ liệu trong data/ai-team.json:"]
+    lines = ["Theo dữ liệu:"]
     overview_summary = str(overview.get("summary", "")).strip()
     if overview_summary:
         lines.append(f"- {overview_summary}")
