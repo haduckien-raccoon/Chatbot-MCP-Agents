@@ -1,147 +1,301 @@
 # SGroup Multi-Agent Chatbot
 
-Chatbot multi-agent cho SGroup su dung:
-- Gemini (`google-genai`)
-- LangGraph de dieu phoi graph agent
-- FastAPI async cho backend
-- HTML/CSS/JS thuan cho frontend
-- OpenWeather, NewsAPI (co RSS fallback), Exa, Brave Search
-- MCP server (stdio) de tich hop voi MCP client
+Chatbot da tac tu (multi-agent) cho bai toan noi bo SGroup, gom 2 cach tich hop:
+- HTTP app (FastAPI + Web UI)
+- MCP server qua stdio (de MCP client goi tool)
 
-## 1. Cau truc du an
+He thong dung LangGraph de dieu phoi pipeline, va cac agent theo domain de xu ly theo intent.
 
+## 1) Kien truc tong quan
+
+Thanh phan chinh:
+- `main.py`: khoi tao FastAPI + static frontend
+- `api/`: REST endpoints (`/api/chat`, `/api/health`, xoa history)
+- `graph/`: LangGraph runtime state + nodes + graph builder
+- `agents/`: bo agent domain (general, weather, news, IT, SGroup, AI Team)
+- `modules/`: agent mo rong (`module_a`, `module_b`)
+- `services/`: layer tich hop du lieu ngoai + tri thuc + LLM + memory
+- `mcp_server.py`: MCP server tool-based qua stdio
+- `static/`: giao dien web chat
+- `tests/`: test state factory va dong bo state entrypoint
+
+## 2) Luong xu ly end-to-end
+
+### 2.1 HTTP flow
+
+1. Client goi `POST /api/chat` voi `message`, `session_id`.
+2. API tao state bang `build_initial_state`.
+3. `agent_graph.ainvoke(state)` chay 3 node:
+   - `orchestrate_node`
+   - `fetch_external_data_node`
+   - `generate_response_node`
+4. Ket qua `final_response` duoc luu vao memory in-memory theo `session_id`.
+5. API tra `reply`, `agent_used`, `session_id`.
+
+### 2.2 MCP flow
+
+1. MCP client spawn process `python mcp_server.py` (transport `stdio`).
+2. Client `initialize` -> `list_tools` -> `call_tool`.
+3. Tool `chat` dung chung LangGraph pipeline nhu HTTP.
+4. Tool `weather/news/clear_chat/health` tra du lieu truc tiep theo schema tool.
+
+## 3) Pipeline chi tiet (LangGraph)
+
+Graph duoc build trong `graph/builder.py`:
+- Entry point: `orchestrate`
+- Sau do: `fetch_external_data`
+- Cuoi cung: `generate_response`
+- Ket thuc: `END`
+
+```mermaid
+flowchart TD
+    A[User message] --> B[build_initial_state]
+    B --> C[orchestrate_node]
+    C --> D[fetch_external_data_node]
+    D --> E[generate_response_node]
+    E --> F[save_turn + return]
 ```
-sgroup-chatbot/
-├── main.py
-├── requirements.txt
-├── .env
-├── .env.example
-├── .gitignore
-├── README.md
-├── graph/
-├── agents/
-├── modules/
-├── services/
-├── api/
-├── config/
-└── static/
-```
 
-## 2. Cai dat
+State runtime hien tai (tom tat):
+- `selected_agent`: agent chinh (single)
+- `selected_agents`: danh sach agent khi multi-intent
+- `agent_queries`: map agent -> sub-query
+- `external_data_map`: map agent -> du lieu fetch duoc
+- `final_responses`: map agent -> response tung nhanh
 
-### Buoc 1: Tao virtual environment
+## 4) Agent hoat dong nhu the nao
 
-```bash
-python -m venv venv
-source venv/bin/activate
-# Windows: venv\Scripts\activate
-```
+## 4.1 Orchestrator (chon agent)
 
-### Buoc 2: Cai dependencies
+`agents/orchestrator.py` dung chien luoc lai:
+- Rule-first fast route (regex)
+- Fallback LLM router khi khong match rule
 
-```bash
-pip install -r requirements.txt
-```
+Danh sach agent co san:
+- `general`
+- `ai_team`
+- `weather`
+- `news`
+- `it_knowledge`
+- `sgroup_knowledge`
+- `module_a`
+- `module_b`
 
-### Buoc 3: Cau hinh bien moi truong
+## 4.2 Multi-agent
 
-```bash
-cp .env.example .env
-```
+He thong da la multi-agent that:
+- Tach cau hoi theo lien tu/phan doan (`va`, `roi`, `sau do`, `and`, `then`, dau phay/cham phay)
+- Neu 1 cau co nhieu intent, co co che gom nhieu intent tren cung clause
+- `fetch_external_data_node` fan-out async bang `asyncio.gather`
+- `generate_response_node` fan-out async tiep de sinh tra loi tung agent
+- Neu >1 agent, ket qua duoc merge thanh cac section `[1]`, `[2]`, `[3]...`
 
-Can dien cac key:
-- `GOOGLE_API_KEY`
-- `OPENWEATHER_API_KEY`
-- `EXA_API_KEY` (tuy chon)
-- `NEWS_API_KEY` (tuy chon)
-- `BRAVE_API_KEY` (tuy chon)
-- `DATA_DIR` (mac dinh `../data`)
+## 4.3 Hanh vi theo domain
 
-### Du lieu SGroup dat o dau?
+- `general`: tra loi chung + hoi dap ban la ai
+- `weather`: deterministic output tu Visual Crossing, ho tro da dia diem va date range
+- `news`: deterministic output tu NewsAPI + RSS fallback, co bo loc noisy/garbled
+- `it_knowledge`: tong hop Exa + Brave + YouTube RSS + optional external MCP
+- `sgroup_knowledge`: grounding tu `data/sgroup.json` + `data/sgroup-site.json`
+- `ai_team`: grounding tu `data/ai-team.json`
+- `module_a/module_b`: map sang module trong `ai-team.json`
 
-Dat bo du lieu tai thu muc duoc tro boi `DATA_DIR`.
+Luu y quan trong:
+- Nhieu agent override `handle()` de tra deterministic text, giam hallucination.
+- `BaseAgent` chi goi LLM khi can, kem instruction bat buoc tra loi Tieng Viet co dau.
 
-Voi cau hinh mac dinh:
-- Project: `sgroup-chatbot/`
-- Data: `../data/`
+## 5) LLM va routing strategy
 
-Can co cac file:
+Du an dang su dung wrapper `GeminiService`, nhung backend thuc te goi Groq Chat Completions:
+- API key: `GROQ_API_KEY`
+- Endpoint: `GROQ_BASE_URL` (mac dinh OpenAI-compatible)
+- Model fallback theo danh sach `GROQ_MODELS`
+
+`GOOGLE_*` van con trong settings de tuong thich, nhung flow chinh hien tai dang di qua Groq wrapper.
+
+## 6) Du lieu va tri thuc
+
+`DATA_DIR` mac dinh `../data` (tuong doi theo project root).
+
+Can co:
 - `sgroup.json`
-- `ai-team.json`
 - `sgroup-site.json`
-- Thu muc `docs/` cho technical docs (neu co)
+- `ai-team.json`
+- `docs/` (trich doan technical docs neu co)
 
-He thong hien da data-driven cho cac nhom:
-- `sgroup_knowledge` doc tu `sgroup.json` + `sgroup-site.json`
-- `ai_team` doc tu `ai-team.json`
-- `module_a` va `module_b` map theo module trong `ai-team.json`
+`services/knowledge_service.py`:
+- Tokenize + score record theo title/summary/keywords
+- Co nhanh tra loi truc tiep cho role SGroup (chu nhiem, pho chu nhiem, ban noi bo...)
+- Co nhanh AI Team va module-specific
 
-## 3. Chay du an
+## 7) Memory va state persistence
 
-```bash
-python main.py
-```
+`services/memory_service.py` hien tai la in-memory:
+- `_sessions` la dict list message
+- `MAX_TURNS = 20` (toi da 40 message role-based)
 
-Mo trinh duyet tai:
-- http://localhost:8000
+Y nghia:
+- Tot cho local/dev
+- Khong ben vung qua restart
+- Chua phu hop scale nhieu instance neu chua doi sang Redis/DB
 
-## 4. Chay MCP server (buoc 2 ban yeu cau)
+## 8) MCP trong project nay
 
-### 4.1 Start MCP server
+## 8.1 MCP server noi bo (project expose cho client)
 
-```bash
-python mcp_server.py
-```
+File: `mcp_server.py`
 
-Server MCP chay qua `stdio` va expose cac tools:
+Tools expose:
 - `chat(message, session_id="default")`
 - `weather(location)`
 - `news(query)`
 - `clear_chat(session_id)`
 - `health()`
 
-### 4.2 Cau hinh MCP client ket noi
+Transport:
+- `mcp.run(transport="stdio")`
 
-Su dung file mau:
+## 8.2 External MCP (project la MCP client de enrich IT context)
+
+File: `services/external_mcp_service.py`
+
+Muc tieu:
+- IT agent co the goi them MCP servers ben ngoai (Brave, GitHub, Context7...)
+- Bat qua `EXTERNAL_MCP_ENABLED=true`
+- Config qua file JSON (mac dinh `mcp-external-servers.json`)
+
+Mau config:
+- `docs/mcp-external-servers.example.json`
+
+Co 3 che do integration:
+- `mode: tool` (goi 1 tool cu the)
+- `mode: context7` (resolve library + query docs)
+- fallback default theo ten server (`brave`, `github`) neu khong khai bao tool ro rang
+
+## 9) Cai dat va chay nhanh
+
+### 9.1 Cai dat
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Bien moi truong toi thieu nen co:
+- `GROQ_API_KEY`
+- `VISUALCROSSING_API_KEY`
+- `DATA_DIR`
+
+Tuy chon:
+- `EXA_API_KEY`
+- `BRAVE_API_KEY`
+- `NEWS_API_KEY`
+- `EXTERNAL_MCP_ENABLED`, `EXTERNAL_MCP_CONFIG_PATH`
+
+### 9.2 Chay HTTP app
+
+```bash
+python main.py
+```
+
+Mo:
+- `http://localhost:8000`
+
+### 9.3 Chay MCP server
+
+```bash
+python mcp_server.py
+```
+
+Neu dung MCP client, nen dung config mau:
 - `docs/mcp-client-config.example.json`
 
-Copy vao cau hinh MCP client cua ban va thay:
-- duong dan Python venv
-- duong dan cwd den thu muc du an
+## 10) Demo su dung
 
-Transport dang dung la `stdio`:
-1. MCP client spawn process `python mcp_server.py`
-2. Client va server trao doi JSON-RPC qua stdin/stdout
-3. Client goi `list_tools` -> nhan danh sach tool
-4. Client goi `call_tool` de chay `chat`/`weather`/`news`
+## 10.1 Demo HTTP API
 
-## 5. API endpoints
+Chat:
 
-- `POST /api/chat`
-  - body:
-    ```json
-    {
-      "message": "thoi tiet tai Ha Noi hom nay",
-      "session_id": "default"
-    }
-    ```
+```bash
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Thong tin SGroup va du bao thoi tiet Da Nang ngay mai","session_id":"demo1"}'
+```
+
+Xoa lich su session:
+
+```bash
+curl -X DELETE http://localhost:8000/api/chat/demo1
+```
+
+Health:
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+## 10.2 Demo MCP bang script co san
+
+```bash
+python test_mcp_client.py
+```
+
+Script se:
+- spawn MCP server qua stdio
+- `list_tools`
+- goi lan luot `health`, `weather`, `chat`, `clear_chat`
+
+## 10.3 Demo multi-agent
+
+Thu cac prompt:
+- `Thong tin SGroup va tom tat du an AI Team`
+- `Tin the thao moi nhat va du bao thoi tiet Ha Noi ngay mai`
+- `Top tai lieu FastAPI va cho toi them video hoc`
+
+Ky vong:
+- he thong tach intent
+- chay nhieu agent song song
+- merge ket qua thanh cac section danh so
+
+## 11) Cac endpoint va contract
+
+HTTP:
+- `POST /api/chat` body:
+  - `message: str`
+  - `session_id: str = "default"`
 - `DELETE /api/chat/{session_id}`
 - `GET /api/health`
 
-## 6. Luong xu ly
+MCP tools:
+- `chat`
+- `weather`
+- `news`
+- `clear_chat`
+- `health`
 
-1. User gui tin nhan qua UI.
-2. `POST /api/chat` tao `AgentState`.
-3. LangGraph chay 3 node:
-   - `orchestrate_node` -> chon agent
-   - `fetch_external_data_node` -> lay du lieu API neu can
-   - `generate_response_node` -> sinh cau tra loi
-4. Luu history theo `session_id`.
-5. Tra ve `reply`, `agent_used`, `session_id`.
+## 12) Kiem thu nhanh
 
-## 7. Ghi chu
+Chay unit test:
 
-- Neu khong co `NEWS_API_KEY`, he thong tu fallback sang RSS feed.
-- Neu khong co `EXA_API_KEY`, IT agent fallback sang Brave (neu co key).
-- Session memory la in-memory dict, phu hop cho local/dev.
-- De tang do chinh xac thong tin SGroup, cap nhat truc tiep bo du lieu trong `DATA_DIR` thay vi sua prompt hard-code.
+```bash
+python -m unittest tests/test_state_factory.py
+```
+
+Test nay dam bao:
+- shape state khoi tao la canonical
+- HTTP va MCP deu dung chung state factory
+
+## 13) Ghi chu ky thuat quan trong
+
+- API `/api/health` dang tra model label `gemini-2.5-flash` (legacy label), trong khi wrapper LLM hien tai goi Groq.
+- `mcp_server.chat()` hien tra `agent_used` la `selected_agent` chinh; voi multi-agent, API HTTP hien ro hon vi join danh sach `selected_agents`.
+- Visual Crossing key dang co default trong settings; nen doi sang key rieng qua `.env` cho moi truong production.
+
+## 14) Huong nang cap de production
+
+- Chuyen memory in-memory sang Redis/Postgres
+- Them tracing request_id + latency per node/agent
+- Mo rong test cho routing multi-intent va deterministic factual branches
+- Dong bo health/model metadata theo LLM backend thuc te
