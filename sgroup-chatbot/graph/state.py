@@ -1,5 +1,7 @@
 from typing import TypedDict
 
+from services.memory_service import get_history
+
 
 class AgentState(TypedDict):
     # Current user message
@@ -22,3 +24,19 @@ class AgentState(TypedDict):
     final_responses: dict[str, str]
     # Conversation history as list of role/content dict
     history: list[dict]
+
+
+def build_initial_state(message: str, session_id: str) -> AgentState:
+    """Create the canonical initial runtime state for both HTTP and MCP entrypoints."""
+    return {
+        "user_message": message,
+        "session_id": session_id,
+        "selected_agent": "",
+        "selected_agents": [],
+        "agent_queries": {},
+        "external_data": "",
+        "external_data_map": {},
+        "final_response": "",
+        "final_responses": {},
+        "history": get_history(session_id),
+    }

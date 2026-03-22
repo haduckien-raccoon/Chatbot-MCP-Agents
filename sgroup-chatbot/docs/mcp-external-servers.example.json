@@ -1,0 +1,42 @@
+{
+  "mcpServers": {
+    "brave": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "integration": {
+        "mode": "tool",
+        "tool": "brave_web_search",
+        "args": {
+          "query": "{query}",
+          "count": 5
+        }
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "GITHUB_TOOLSETS": "repos"
+      },
+      "integration": {
+        "mode": "tool",
+        "tool": "search_repositories",
+        "args": {
+          "query": "{query}",
+          "perPage": 5
+        }
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "integration": {
+        "mode": "context7"
+      }
+    }
+  }
+}
