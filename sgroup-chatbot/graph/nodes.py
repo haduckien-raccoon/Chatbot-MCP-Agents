@@ -14,9 +14,11 @@ from agents.news import NewsAgent
 from agents.it_knowledge import ITKnowledgeAgent
 from agents.sgroup_knowledge import SGroupKnowledgeAgent
 from modules.registry import MODULE_REGISTRY
+from services.gemini_service import GeminiService
 from services.memory_service import get_history
 
 _orchestrator = Orchestrator()
+_synthesizer = GeminiService()
 _agents = {
     "general": GeneralAgent(),
     "ai_team": AITeamAgent(),
@@ -26,6 +28,12 @@ _agents = {
     "sgroup_knowledge": SGroupKnowledgeAgent(),
     **{name: cls() for name, cls in MODULE_REGISTRY.items()},
 }
+
+_OUT_OF_SCOPE_REPLY = (
+    "Mình chưa thể hỗ trợ câu hỏi này vì đang ngoài phạm vi của chatbot SGroup.\n"
+    "Mình hiện hỗ trợ các mảng: thông tin SGroup, AI Team, thời tiết, tin tức, kiến thức IT/lập trình, module A/B.\n"
+    "Bạn có thể hỏi lại theo một trong các chủ đề trên để mình hỗ trợ chính xác hơn."
+)
 
 
 async def orchestrate_node(state: AgentState) -> AgentState:
@@ -73,6 +81,13 @@ async def generate_response_node(state: AgentState) -> AgentState:
     agent_queries = state.get("agent_queries", {})
     external_data_map = state.get("external_data_map", {})
 
+    if selected_agents == ["out_of_scope"]:
+        return {
+            **state,
+            "final_responses": {"out_of_scope": _OUT_OF_SCOPE_REPLY},
+            "final_response": _OUT_OF_SCOPE_REPLY,
+        }
+
     async def _handle_for_agent(agent_name: str) -> tuple[str, str]:
         agent = _agents.get(agent_name, _agents["general"])
         query = agent_queries.get(agent_name, state["user_message"])
@@ -109,10 +124,34 @@ async def generate_response_node(state: AgentState) -> AgentState:
         sections.append(f"\n[{idx}] {title}")
         sections.append(final_responses.get(agent_name, "Chưa có dữ liệu phù hợp."))
 
+    merged_response = "\n".join(sections)
+
+    synthesis_message = (
+        "Đây là kết quả từ nhiều agent đã chạy song song. "
+        "Hãy tổng hợp lại thành câu trả lời cuối cùng mạch lạc, rõ từng phần, không bịa thêm thông tin.\n\n"
+        f"Câu hỏi gốc: {state['user_message']}\n\n"
+        "Kết quả từng phần:\n"
+        f"{merged_response}\n\n"
+        "Yêu cầu:\n"
+        "- Viết tiếng Việt có dấu, dễ đọc.\n"
+        "- Giữ đúng dữ kiện theo kết quả đầu vào.\n"
+        "- Nếu thiếu dữ liệu thì nói rõ phần thiếu."
+    )
+
+    try:
+        synthesized = await _synthesizer.chat(
+            system="Bạn là bộ tổng hợp kết quả đa-agent của SGroup chatbot.",
+            message=synthesis_message,
+            history=[],
+        )
+        final_response = synthesized.strip() if synthesized and synthesized.strip() else merged_response
+    except Exception:
+        final_response = merged_response
+
     return {
         **state,
         "final_responses": final_responses,
-        "final_response": "\n".join(sections),
+        "final_response": final_response,
     }
 
 

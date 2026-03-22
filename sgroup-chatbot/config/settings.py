@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     external_mcp_config_path: str = "mcp-external-servers.json"
     external_mcp_timeout_ms: int = 15000
 
+    # Redis long-memory storage (recommended for multi-instance deployments)
+    redis_memory_enabled: bool = False
+    redis_url: str = "redis://localhost:6379/0"
+    redis_memory_prefix: str = "sgroup:long_memory"
+    redis_memory_ttl_seconds: int = 0
+
     # Knowledge base path
     data_dir: str = "../data"
 

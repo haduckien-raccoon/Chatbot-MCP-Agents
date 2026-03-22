@@ -2,7 +2,7 @@ from mcp.server.fastmcp import FastMCP
 
 from graph.builder import agent_graph
 from graph.state import build_initial_state
-from services.memory_service import clear_history, save_turn
+from services.memory_service import clear_history, save_turn_with_long_memory
 from services.news_service import get_news
 from services.weather_service import get_weather
 
@@ -14,7 +14,7 @@ async def chat(message: str, session_id: str = "default") -> dict:
     """Run the LangGraph chatbot pipeline and return the final response."""
     initial_state = build_initial_state(message, session_id)
     result = await agent_graph.ainvoke(initial_state)
-    save_turn(session_id, message, result["final_response"])
+    await save_turn_with_long_memory(session_id, message, result["final_response"])
 
     return {
         "reply": result["final_response"],

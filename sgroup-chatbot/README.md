@@ -29,7 +29,7 @@ Thanh phan chinh:
    - `orchestrate_node`
    - `fetch_external_data_node`
    - `generate_response_node`
-4. Ket qua `final_response` duoc luu vao memory in-memory theo `session_id`.
+4. Ket qua `final_response` duoc luu vao memory theo `session_id` (short + long memory).
 5. API tra `reply`, `agent_used`, `session_id`.
 
 ### 2.2 MCP flow
@@ -130,14 +130,28 @@ Can co:
 
 ## 7) Memory va state persistence
 
-`services/memory_service.py` hien tai la in-memory:
-- `_sessions` la dict list message
-- `MAX_TURNS = 20` (toi da 40 message role-based)
+`services/memory_service.py` hien tai co 2 lop memory:
+
+- Short memory:
+  - Luu lich su hoi thoai gan nhat theo session trong RAM (`_sessions`).
+  - Window mac dinh: `MAX_SHORT_TURNS = 20` (toi da 40 message role-based).
+
+- Long memory:
+  - Trich xuat thong tin ben vung tu user message bang LLM summarizer (ho tro tieng Viet co dau tot hon heuristic regex).
+  - Luu cache trong RAM (`_long_memory_cache`) va persist theo session tren Redis.
+  - Tu dong duoc chen vao ngữ cảnh hoi thoai duoi dang block `[LONG MEMORY]`.
+
+Schema long memory:
+- `profile`: thong tin nguoi dung (name, location)
+- `preferences`: so thich/muc tieu lau dai
+- `topics`: chu de quan tam thuong xuyen
+- `memory_summary`: tom tat dai han ngan gon
+
+`clear_chat(session_id)` se xoa ca short memory va long memory cua session do.
 
 Y nghia:
-- Tot cho local/dev
-- Khong ben vung qua restart
-- Chua phu hop scale nhieu instance neu chua doi sang Redis/DB
+- Hoat dong on dinh hon cho multi-instance khi bat Redis.
+- Neu Redis tat/khong san sang, he thong van chay voi short-memory trong RAM.
 
 ## 8) MCP trong project nay
 
@@ -193,6 +207,7 @@ Tuy chon:
 - `BRAVE_API_KEY`
 - `NEWS_API_KEY`
 - `EXTERNAL_MCP_ENABLED`, `EXTERNAL_MCP_CONFIG_PATH`
+- `REDIS_MEMORY_ENABLED`, `REDIS_URL`, `REDIS_MEMORY_PREFIX`, `REDIS_MEMORY_TTL_SECONDS`
 
 ### 9.2 Chay HTTP app
 
@@ -236,6 +251,31 @@ Health:
 curl http://localhost:8000/api/health
 ```
 
+Debug memory theo session:
+
+```bash
+curl http://localhost:8000/api/memory/demo1
+```
+
+Upsert long memory thu cong (admin/debug):
+
+```bash
+curl -X PUT http://localhost:8000/api/memory/demo1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profile": {"name": "An", "location": "Da Nang"},
+    "preferences": ["thich Python"],
+    "topics": ["python", "mcp"],
+    "memory_summary": "Nguoi dung quan tam Python va MCP"
+  }'
+```
+
+Xoa rieng long memory:
+
+```bash
+curl -X DELETE http://localhost:8000/api/memory/demo1
+```
+
 ## 10.2 Demo MCP bang script co san
 
 ```bash
@@ -266,6 +306,9 @@ HTTP:
   - `message: str`
   - `session_id: str = "default"`
 - `DELETE /api/chat/{session_id}`
+- `GET /api/memory/{session_id}` (debug short/long memory)
+- `PUT /api/memory/{session_id}` (upsert long memory thu cong)
+- `DELETE /api/memory/{session_id}` (xoa rieng long memory)
 - `GET /api/health`
 
 MCP tools:
@@ -292,10 +335,10 @@ Test nay dam bao:
 - API `/api/health` dang tra model label `gemini-2.5-flash` (legacy label), trong khi wrapper LLM hien tai goi Groq.
 - `mcp_server.chat()` hien tra `agent_used` la `selected_agent` chinh; voi multi-agent, API HTTP hien ro hon vi join danh sach `selected_agents`.
 - Visual Crossing key dang co default trong settings; nen doi sang key rieng qua `.env` cho moi truong production.
+- Khi Redis memory mat ket noi, service se log warning ro rang va fallback sang cache trong RAM.
 
 ## 14) Huong nang cap de production
 
-- Chuyen memory in-memory sang Redis/Postgres
 - Them tracing request_id + latency per node/agent
 - Mo rong test cho routing multi-intent va deterministic factual branches
 - Dong bo health/model metadata theo LLM backend thuc te

@@ -21,6 +21,41 @@ Chi tra ve JSON, khong giai thich:
 {"agent": "<ten>", "confidence": <0.0-1.0>, "reason": "<ngan gon>"}
 """
 
+_PLANNER_SYSTEM = """
+Ban la planner cho chatbot da-agent cua SGroup.
+Nhiem vu: tach cau hoi thanh danh sach task (moi task map 1 agent + 1 sub-query),
+hoac danh dau ngoai pham vi neu cau hoi khong thuoc mien chatbot.
+
+Mien chatbot hop le:
+- thong tin SGroup
+- thong tin AI Team
+- thoi tiet
+- tin tuc
+- kien thuc IT/lap trinh
+- module_a, module_b
+
+Chi tra ve JSON hop le, khong giai thich:
+{
+    "out_of_scope": true/false,
+    "reason": "...",
+    "tasks": [
+        {"agent": "weather", "query": "..."},
+        {"agent": "news", "query": "..."}
+    ]
+}
+"""
+
+_SCOPE_SYSTEM = """
+Ban la bo loc pham vi cho SGroup chatbot.
+
+Neu cau hoi nam NGOAI pham vi ho tro (SGroup, AI Team, weather, news, IT/programming, module_a/module_b)
+thi tra ve JSON: {"in_scope": false, "reason": "..."}
+
+Neu cau hoi nam TRONG pham vi, tra ve JSON: {"in_scope": true, "reason": "..."}
+
+Chi tra ve JSON hop le, khong giai thich.
+"""
+
 _ALLOWED_AGENTS = {
     "general",
     "ai_team",
@@ -30,6 +65,7 @@ _ALLOWED_AGENTS = {
     "sgroup_knowledge",
     "module_a",
     "module_b",
+    "out_of_scope",
 }
 
 
@@ -170,6 +206,93 @@ class Orchestrator:
 
         return intents
 
+    def _extract_json(self, raw: str) -> dict:
+        clean = (raw or "").strip()
+        if not clean:
+            return {}
+
+        if "```" in clean:
+            parts = clean.split("```")
+            if len(parts) > 1:
+                clean = parts[1]
+                if clean.startswith("json"):
+                    clean = clean[4:]
+
+        match = re.search(r"\{[\s\S]*\}", clean)
+        if match:
+            clean = match.group(0)
+
+        try:
+            parsed = json.loads(clean.strip())
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+
+    async def _is_out_of_scope(self, message: str) -> bool:
+        normalized_message = self._normalize(message)
+
+        if self._fast_route(normalized_message):
+            return False
+
+        if self._collect_fast_intents(normalized_message):
+            return False
+
+        try:
+            raw = await self.llm.chat(system=_SCOPE_SYSTEM, message=message, history=[])
+        except Exception:
+            return False
+
+        payload = self._extract_json(raw)
+        if not payload:
+            return False
+
+        in_scope = payload.get("in_scope")
+        if isinstance(in_scope, bool):
+            return not in_scope
+        return False
+
+    async def _llm_plan_routes(self, message: str) -> tuple[list[str], dict[str, str]]:
+        try:
+            raw = await self.llm.chat(system=_PLANNER_SYSTEM, message=message, history=[])
+        except Exception:
+            return [], {}
+
+        payload = self._extract_json(raw)
+        if not payload:
+            return [], {}
+
+        if payload.get("out_of_scope") is True:
+            return ["out_of_scope"], {"out_of_scope": message}
+
+        tasks = payload.get("tasks")
+        if not isinstance(tasks, list):
+            return [], {}
+
+        selected_agents: list[str] = []
+        agent_queries: dict[str, str] = {}
+
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+
+            agent = str(task.get("agent", "")).strip()
+            query = str(task.get("query", "")).strip() or message
+
+            if agent not in _ALLOWED_AGENTS or agent == "out_of_scope":
+                continue
+
+            if agent not in selected_agents:
+                selected_agents.append(agent)
+                agent_queries[agent] = query
+            else:
+                agent_queries[agent] = f"{agent_queries[agent]}; {query}"
+
+        if len(selected_agents) > 1 and "general" in selected_agents:
+            selected_agents = [a for a in selected_agents if a != "general"]
+            agent_queries.pop("general", None)
+
+        return selected_agents, agent_queries
+
     async def route(self, message: str) -> str:
         normalized_message = self._normalize(message)
         fast_agent = self._fast_route(normalized_message)
@@ -178,19 +301,19 @@ class Orchestrator:
 
         raw = await self.llm.chat(system=_SYSTEM, message=message, history=[])
         try:
-            clean = raw.strip()
-            if "```" in clean:
-                parts = clean.split("```")
-                if len(parts) > 1:
-                    clean = parts[1]
-                    if clean.startswith("json"):
-                        clean = clean[4:]
-            agent = json.loads(clean.strip()).get("agent", "general")
+            agent = self._extract_json(raw).get("agent", "general")
             return agent if agent in _ALLOWED_AGENTS else "general"
         except Exception:
             return "general"
 
     async def plan_routes(self, message: str) -> tuple[list[str], dict[str, str]]:
+        if await self._is_out_of_scope(message):
+            return ["out_of_scope"], {"out_of_scope": message}
+
+        llm_selected_agents, llm_agent_queries = await self._llm_plan_routes(message)
+        if llm_selected_agents:
+            return llm_selected_agents, llm_agent_queries
+
         clauses = self._split_clauses(message)
 
         if len(clauses) == 1:
