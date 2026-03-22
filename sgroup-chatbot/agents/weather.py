@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from agents.base import BaseAgent
 from config.settings import settings
@@ -25,16 +26,64 @@ Neu khong xac dinh duoc dia diem, hoi lai nguoi dung.
         location = self._extract_location(message) or settings.weather_default_city
         try:
             data = await get_weather(location)
+            reference_link = self._build_forecast_link(location, data)
+            suggestion = self._build_suggestion(
+                temp=float(data["main"]["temp"]),
+                humidity=int(data["main"]["humidity"]),
+                weather_desc=str(data["weather"][0]["description"]),
+            )
             return (
                 "[DU LIEU THOI TIET THUC TE]\n"
                 f"Dia diem: {data['name']}, {data['sys']['country']}\n"
                 f"Nhiet do: {data['main']['temp']} do C (cam giac {data['main']['feels_like']} do C)\n"
                 f"Trang thai: {data['weather'][0]['description']}\n"
                 f"Do am: {data['main']['humidity']}%\n"
-                f"Toc do gio: {data['wind']['speed']} m/s"
+                f"Toc do gio: {data['wind']['speed']} m/s\n"
+                f"Goi y: {suggestion}\n"
+                f"Xem du bao chi tiet: {reference_link}"
             )
         except Exception as exc:
             return f"[Khong lay duoc du lieu thoi tiet: {exc}]"
+
+    async def handle(
+        self,
+        message: str,
+        history: list[dict],
+        external_data: str = "",
+    ) -> str:
+        # Return deterministic weather answer to avoid LLM changing trusted links.
+        _ = (message, history)
+        if external_data:
+            return external_data
+        return "[Khong lay duoc du lieu thoi tiet]"
+
+    def _build_forecast_link(self, raw_location: str, weather_data: dict) -> str:
+        city = str(weather_data.get("name") or raw_location or "").strip()
+        normalized = self._normalize_text(city)
+
+        if normalized in {"da nang", "danang", }:
+            return (
+                "https://www.accuweather.com/en/vn/da-nang/352954/"
+                "weather-forecast/352954#google_vignette"
+            )
+
+        safe_city = city.replace(" ", "-").lower()
+        return f"https://www.accuweather.com/vi/search-locations?query={safe_city}"
+
+    def _normalize_text(self, text: str) -> str:
+        normalized = unicodedata.normalize("NFD", text.lower())
+        stripped = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+        return stripped.replace("-", " ").strip()
+
+    def _build_suggestion(self, temp: float, humidity: int, weather_desc: str) -> str:
+        normalized_desc = self._normalize_text(weather_desc)
+        if "mua" in normalized_desc:
+            return "Nen mang o hoac ao mua khi ra ngoai."
+        if temp >= 33:
+            return "Troi kha nong, nen uong du nuoc va han che ra duong buoi trua."
+        if humidity >= 85:
+            return "Do am cao, nen mac do thoang va giu co the kho rao."
+        return "Thoi tiet tuong doi de chiu, ban co the di chuyen binh thuong."
 
     def _extract_location(self, msg: str) -> str | None:
         patterns = [
