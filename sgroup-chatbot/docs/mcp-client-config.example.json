@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sgroup-chatbot": {
+      "command": "/absolute/path/to/venv/bin/python",
+      "args": ["mcp_server.py"],
+      "cwd": "/absolute/path/to/sgroup-chatbot",
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}
