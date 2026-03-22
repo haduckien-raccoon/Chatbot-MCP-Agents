@@ -1,13 +1,17 @@
 const SESSION_ID = "s_" + Math.random().toString(36).slice(2, 10);
 
+const appShell = document.getElementById("appShell");
 const messagesEl = document.getElementById("messages");
 const msgInput = document.getElementById("msgInput");
 const sendBtn = document.getElementById("sendBtn");
 const clearBtn = document.getElementById("clearBtn");
+const promptChips = Array.from(document.querySelectorAll(".prompt-chip"));
+const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
 const urlInput = document.getElementById("urlInput");
 const loadBtn = document.getElementById("loadBtn");
 const closeBtn = document.getElementById("closeBtn");
 const webFrame = document.getElementById("webFrame");
+const webLoading = document.getElementById("webLoading");
 const placeholder = document.getElementById("placeholder");
 const chatPanel = document.getElementById("chatPanel");
 const divider = document.getElementById("divider");
@@ -84,6 +88,24 @@ function renderBubble(role, content, agentUsed) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+function setMobileView(target) {
+  if (!appShell) {
+    return;
+  }
+
+  appShell.classList.toggle("mode-chat", target === "chat");
+  appShell.classList.toggle("mode-web", target === "web");
+  tabButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.target === target);
+  });
+}
+
+function updateSendState(isSending = false) {
+  const hasText = msgInput.value.trim().length > 0;
+  sendBtn.disabled = isSending || !hasText;
+  sendBtn.classList.toggle("is-loading", isSending);
+}
+
 function showTyping() {
   const el = document.createElement("div");
   el.className = "msg bot typing";
@@ -102,14 +124,14 @@ function hideTyping() {
 
 async function send() {
   const text = msgInput.value.trim();
-  if (!text) {
+  if (!text || sendBtn.classList.contains("is-loading")) {
     return;
   }
 
   renderBubble("user", text);
   msgInput.value = "";
   msgInput.style.height = "auto";
-  sendBtn.disabled = true;
+  updateSendState(true);
   showTyping();
 
   try {
@@ -126,7 +148,7 @@ async function send() {
     hideTyping();
     renderBubble("bot", "Loi ket noi. Vui long thu lai.", null);
   } finally {
-    sendBtn.disabled = false;
+    updateSendState(false);
     msgInput.focus();
   }
 }
@@ -142,9 +164,22 @@ msgInput.addEventListener("keydown", (e) => {
 msgInput.addEventListener("input", () => {
   msgInput.style.height = "auto";
   msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + "px";
+  updateSendState(false);
+});
+
+promptChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    msgInput.value = chip.dataset.prompt || "";
+    msgInput.dispatchEvent(new Event("input"));
+    msgInput.focus();
+  });
 });
 
 clearBtn.addEventListener("click", async () => {
+  if (!window.confirm("Ban muon xoa toan bo lich su chat?")) {
+    return;
+  }
+
   await fetch(`/api/chat/${SESSION_ID}`, { method: "DELETE" });
   messagesEl.innerHTML = `<div class="msg bot">
     <div class="msg-avatar">SG</div>
@@ -180,7 +215,15 @@ function normalizeUrl(raw) {
     url = "https://" + url;
   }
 
-  return url;
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return "";
+    }
+    return parsed.toString();
+  } catch {
+    return "";
+  }
 }
 
 function pulsePreviewPanel() {
@@ -193,13 +236,19 @@ function pulsePreviewPanel() {
 function loadUrl(rawUrl = "") {
   const url = normalizeUrl(rawUrl || urlInput.value);
   if (!url) {
+    renderBubble("bot", "URL khong hop le. Hay dung dinh dang https://tenmien", null);
     return;
   }
 
+  webLoading?.classList.add("show");
   webFrame.src = url;
   webFrame.style.display = "block";
   placeholder.style.display = "none";
   urlInput.value = url;
+
+  if (window.innerWidth <= 900) {
+    setMobileView("web");
+  }
 }
 
 messagesEl.addEventListener("click", (event) => {
@@ -225,6 +274,21 @@ closeBtn.addEventListener("click", () => {
   webFrame.style.display = "none";
   placeholder.style.display = "flex";
   urlInput.value = "";
+  webLoading?.classList.remove("show");
+
+  if (window.innerWidth <= 900) {
+    setMobileView("chat");
+  }
+});
+
+webFrame.addEventListener("load", () => {
+  webLoading?.classList.remove("show");
+});
+
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setMobileView(button.dataset.target || "chat");
+  });
 });
 
 let dragging = false;
@@ -251,3 +315,5 @@ document.addEventListener("mouseup", () => {
   document.body.style.cursor = "";
   document.body.style.userSelect = "";
 });
+
+updateSendState(false);
