@@ -14,17 +14,25 @@ async def chat(req: ChatRequest) -> ChatResponse:
         "user_message": req.message,
         "session_id": req.session_id,
         "selected_agent": "",
+        "selected_agents": [],
+        "agent_queries": {},
         "external_data": "",
+        "external_data_map": {},
         "final_response": "",
+        "final_responses": {},
         "history": get_history(req.session_id),
     }
 
     result = await agent_graph.ainvoke(initial_state)
     save_turn(req.session_id, req.message, result["final_response"])
 
+    selected_agents = result.get("selected_agents") or [result.get("selected_agent", "general")]
+    selected_agents = [a for a in selected_agents if a]
+    agent_used = ", ".join(selected_agents) if selected_agents else "general"
+
     return ChatResponse(
         reply=result["final_response"],
-        agent_used=result["selected_agent"],
+        agent_used=agent_used,
         session_id=req.session_id,
     )
 

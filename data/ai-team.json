@@ -114,5 +114,37 @@
     "sourceUrl": "",
     "module": "video-summary",
     "technical_doc": "docs_VIDEO_SUMMARY_SYSTEM_SPEC.md"
+  },
+  {
+    "domain": "ai-team",
+    "title": "Thong tin AI xac minh tren website SGroup",
+    "summary": "Các URL chính thức thể hiện AI là một nhánh chuyên môn trong mảng Lập trình.",
+    "keywords": [
+      "sgroup ai",
+      "artificial intelligence",
+      "chuyen mon lap trinh",
+      "ve chung toi"
+    ],
+    "content": "Từ các URL đã cung cấp (đặc biệt là https://sgroupvn.org/ve-chung-toi), phần Chuyên môn hoạt động có nhánh Lập trình gồm Mobile, Artificial Intelligence, Front-end, Back-end. Tuy nhiên các URL này không công bố danh sách đầy đủ thành viên Team AI.",
+    "sourceType": "official",
+    "sourceUrl": "https://sgroupvn.org/, https://sgroupvn.org/ve-chung-toi",
+    "module": "overview"
+  },
+  {
+    "domain": "ai-team",
+    "title": "Danh sach thanh vien Team AI do nguoi dung cung cap (chua xac minh URL)",
+    "summary": "Danh sách được lưu kèm trạng thái chưa xác thực từ các URL đã chỉ định.",
+    "keywords": [
+      "thanh vien ai",
+      "team ai members",
+      "nguyen huy tuong",
+      "tran cong duc",
+      "tu duc manh",
+      "huynh thao nhi"
+    ],
+    "content": "Danh sách người dùng cung cấp: Nguyễn Huy Tưởng, Từ Đức Mạnh, Nguyễn Huynh, Ngô Thị Kim Ly, Hồ Thành Tiến, Phan Văn Toàn, Trần Công Đức, Huỳnh Thảo Nhi, Hà Đức Kiên, Nguyễn Thị Sương Mai, Lưu Hoàng Phúc, Trương Công Trí, Cao Hữu Hiệp, Nguyễn Văn Phúc Vĩnh, Võ Như Khoa. Không tìm thấy xác nhận trực tiếp danh sách này trên các URL: https://sgroupvn.org/, https://sgroupvn.org/ve-chung-toi, https://sgroupvn.org/du-an, https://sgroupvn.org/tin-tuc, https://sgroupvn.org/tuyen-thanh-vien, https://sgroupvn.org/kien-thuc.",
+    "sourceType": "unverified",
+    "sourceUrl": "https://sgroupvn.org/, https://sgroupvn.org/ve-chung-toi, https://sgroupvn.org/du-an, https://sgroupvn.org/tin-tuc, https://sgroupvn.org/tuyen-thanh-vien, https://sgroupvn.org/kien-thuc",
+    "module": "overview"
   }
 ]

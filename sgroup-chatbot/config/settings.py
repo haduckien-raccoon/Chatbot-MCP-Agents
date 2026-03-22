@@ -9,9 +9,33 @@ class Settings(BaseSettings):
     google_model: str = "gemini-2.5-flash"
     google_timeout_ms: int = 8000
 
+    # Groq LLM
+    groq_api_key: str = ""
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    llm_timeout_ms: int = 12000
+    groq_models: str = (
+        "allam-2-7b,"
+        "groq/compound,"
+        "groq/compound-mini,"
+        "llama-3.1-8b-instant,"
+        "llama-3.3-70b-versatile,"
+        "meta-llama/llama-4-scout-17b-16e-instruct,"
+        "meta-llama/llama-prompt-guard-2-22m,"
+        "meta-llama/llama-prompt-guard-2-86m,"
+        "moonshotai/kimi-k2-instruct,"
+        "moonshotai/kimi-k2-instruct-0905,"
+        "openai/gpt-oss-120b,"
+        "openai/gpt-oss-20b,"
+        "openai/gpt-oss-safeguard-20b,"
+        "qwen/qwen3-32b"
+    )
+
     # OpenWeather
     openweather_api_key: str = ""
     weather_default_city: str = "Ho Chi Minh City"
+
+    # Visual Crossing Weather
+    visualcrossing_api_key: str = "FXYZEBLW5H9YWE75XG8N84UTN"
 
     # Exa Search
     exa_api_key: str = ""

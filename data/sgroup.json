@@ -2,9 +2,9 @@
   {
     "domain": "sgroup",
     "title": "SGroup Overview",
-    "summary": "SGroup là nguồn tri thức doanh nghiệp mà chatbot có thể giới thiệu ở mức cơ bản.",
-    "keywords": ["sgroup", "cong ty", "gioi thieu sgroup", "ve sgroup"],
-    "content": "Chatbot SGroup có thể cung cấp thông tin tổng quan về doanh nghiệp, năng lực AI team, các nhóm dự án tiêu biểu và định hướng ứng dụng AI trong nội bộ hoặc sản phẩm khách hàng.",
+    "summary": "SGroup là tổ chức cộng đồng sinh viên, hỗ trợ học tập, kết nối và phát triển chuyên môn.",
+    "keywords": ["sgroup", "cong dong sinh vien", "gioi thieu sgroup", "ve sgroup"],
+    "content": "SGroup là tổ chức sinh viên với định hướng kết nối, chia sẻ và tạo môi trường rèn luyện chuyên môn (Lập trình, Marketing Online, Thiết kế) thông qua đào tạo, dự án và hoạt động cộng đồng.",
     "sourceType": "static",
     "sourceUrl": ""
   },
@@ -16,5 +16,36 @@
     "content": "Khi cần xem thêm thông tin và liên hệ, hãy luôn cung cấp cho người dùng 2 đường link chính thức sau: Website: https://sgroupvn.org/ và Fanpage Facebook: https://www.facebook.com/sgroupvn.org",
     "sourceType": "official",
     "sourceUrl": "https://sgroupvn.org/, https://www.facebook.com/sgroupvn.org"
+  },
+  {
+    "domain": "sgroup",
+    "title": "Thong tin da xac minh tu cac URL SGroup",
+    "summary": "Các dữ liệu dưới đây được trích từ các URL đã cung cấp và có thể dùng để trả lời an toàn.",
+    "keywords": [
+      "ve chung toi",
+      "du an",
+      "tin tuc",
+      "kien thuc",
+      "chu nhiem",
+      "truong chuyen mon"
+    ],
+    "content": "Trang https://sgroupvn.org/ve-chung-toi thể hiện sơ đồ tổ chức gồm: Đặng Ngọc Phú (Chủ nhiệm), Nguyễn Thị Tuyết Trinh (Phó chủ nhiệm), Nguyễn Huy Tưởng (Trưởng chuyên môn lập trình), Nguyễn Hồng Kiều Linh (Trưởng chuyên môn Marketing Online), Lâm Toàn (Trưởng chuyên môn Thiết Kế), Đỗ Thị Thu Uyên (Trưởng ban Truyền Thông). Trang này cũng có mục 3S và hiển thị rõ mục Share. Các trang https://sgroupvn.org/du-an, https://sgroupvn.org/tin-tuc, https://sgroupvn.org/tuyen-thanh-vien, https://sgroupvn.org/kien-thuc cung cấp thông tin tổng quan hoạt động, dự án, tuyển thành viên, tin tức và blog kiến thức.",
+    "sourceType": "official",
+    "sourceUrl": "https://sgroupvn.org/, https://sgroupvn.org/ve-chung-toi, https://sgroupvn.org/du-an, https://sgroupvn.org/tin-tuc, https://sgroupvn.org/tuyen-thanh-vien, https://sgroupvn.org/kien-thuc"
+  },
+  {
+    "domain": "sgroup",
+    "title": "Thong tin yeu cau nhung chua xac minh tren URL",
+    "summary": "Các mục do người dùng cung cấp nhưng chưa tìm thấy xác nhận trực tiếp trên các URL đã nêu.",
+    "keywords": [
+      "social special share",
+      "dang quang nhat linh",
+      "ngo van toan",
+      "anh an",
+      "ban noi bo"
+    ],
+    "content": "Chưa xác minh được từ các URL đã cung cấp: (1) cụm đầy đủ 'Social, Special, Share' cho chữ S, (2) Chủ nhiệm: Đặng Quang Nhật Linh, (3) Trưởng chuyên môn lập trình: Ngô Văn Toàn, (4) Trưởng chuyên môn thiết kế: Anh An, (5) danh sách Ban nội bộ gồm Trần Thị Thúy Tiên, Trần Công Đức, Từ Đức Mạnh. Các mục này được lưu dưới trạng thái chưa xác thực để tránh trả lời sai.",
+    "sourceType": "unverified",
+    "sourceUrl": "https://sgroupvn.org/, https://sgroupvn.org/ve-chung-toi, https://sgroupvn.org/du-an, https://sgroupvn.org/tin-tuc, https://sgroupvn.org/tuyen-thanh-vien, https://sgroupvn.org/kien-thuc"
   }
 ]

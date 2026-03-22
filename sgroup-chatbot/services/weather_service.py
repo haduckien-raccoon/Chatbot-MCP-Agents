@@ -1,9 +1,14 @@
-import httpx
+from datetime import date, timedelta
+from urllib.parse import quote
 import unicodedata
+
+import httpx
 
 from config.settings import settings
 
-_BASE = "https://api.openweathermap.org/data/2.5"
+_BASE = (
+    "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline"
+)
 
 
 def _strip_accents(text: str) -> str:
@@ -34,27 +39,50 @@ def _location_candidates(location: str) -> list[str]:
     return result
 
 
+def _build_timeline_url(location: str, start_date: date | None, end_date: date | None) -> str:
+    safe_location = quote(location.strip(), safe="")
+    if start_date and end_date:
+        return f"{_BASE}/{safe_location}/{start_date.isoformat()}/{end_date.isoformat()}"
+    return f"{_BASE}/{safe_location}"
+
+
 async def get_weather(location: str) -> dict:
+    """Return timeline payload containing current/day/hour weather data for a location."""
+    return await get_weather_range(location=location, start_offset_days=0, end_offset_days=0)
+
+
+async def get_weather_range(
+    location: str,
+    start_offset_days: int = 0,
+    end_offset_days: int = 0,
+) -> dict:
     candidates = _location_candidates(location)
     if not candidates:
         raise ValueError("location is empty")
 
+    today = date.today()
+    start_date = today + timedelta(days=start_offset_days)
+    end_date = today + timedelta(days=end_offset_days)
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    params = {
+        "unitGroup": "us",
+        "include": "days,hours,current",
+        "key": settings.visualcrossing_api_key,
+        "contentType": "json",
+    }
+
     last_error: Exception | None = None
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=12) as client:
         for query in candidates:
-            params = {
-                "q": query,
-                "appid": settings.openweather_api_key,
-                "units": "metric",
-                "lang": "vi",
-            }
             try:
-                response = await client.get(f"{_BASE}/weather", params=params)
+                url = _build_timeline_url(query, start_date, end_date)
+                response = await client.get(url, params=params)
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as exc:
                 last_error = exc
-                # Keep trying alternative query forms for not-found cases.
                 if exc.response.status_code in {400, 404}:
                     continue
                 raise
@@ -62,15 +90,39 @@ async def get_weather(location: str) -> dict:
     raise RuntimeError(f"Khong tim thay du lieu thoi tiet cho '{location}'") from last_error
 
 
-async def get_forecast(location: str) -> dict:
+async def get_weather_dates(
+    location: str,
+    start_date: date,
+    end_date: date,
+) -> dict:
+    candidates = _location_candidates(location)
+    if not candidates:
+        raise ValueError("location is empty")
+
+    query_start = start_date
+    query_end = end_date
+    if query_start > query_end:
+        query_start, query_end = query_end, query_start
+
     params = {
-        "q": location,
-        "appid": settings.openweather_api_key,
-        "units": "metric",
-        "lang": "vi",
-        "cnt": 24,
+        "unitGroup": "us",
+        "include": "days,hours,current",
+        "key": settings.visualcrossing_api_key,
+        "contentType": "json",
     }
-    async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.get(f"{_BASE}/forecast", params=params)
-        response.raise_for_status()
-        return response.json()
+
+    last_error: Exception | None = None
+    async with httpx.AsyncClient(timeout=12) as client:
+        for query in candidates:
+            try:
+                url = _build_timeline_url(query, query_start, query_end)
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                if exc.response.status_code in {400, 404}:
+                    continue
+                raise
+
+    raise RuntimeError(f"Khong tim thay du lieu thoi tiet cho '{location}'") from last_error

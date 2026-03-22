@@ -32,8 +32,14 @@ class BaseAgent(ABC):
             else message
         )
 
+        language_instruction = (
+            "\n\nYÊU CẦU ĐẦU RA BẮT BUỘC:\n"
+            "- Luôn trả lời bằng tiếng Việt có dấu, rõ ràng, tự nhiên.\n"
+            "- Không dùng tiếng Việt không dấu trừ khi người dùng yêu cầu riêng."
+        )
+
         return await self.llm.chat(
-            system=self.system_prompt,
+            system=self.system_prompt + language_instruction,
             message=context,
             history=history,
         )

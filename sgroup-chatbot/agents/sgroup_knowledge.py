@@ -1,5 +1,5 @@
 from agents.base import BaseAgent
-from services.knowledge_service import get_sgroup_context
+from services.knowledge_service import get_sgroup_answer
 
 
 class SGroupKnowledgeAgent(BaseAgent):
@@ -20,4 +20,20 @@ Phong cach: than thien, ro rang, chinh xac, ngan gon.
 """
 
     async def fetch_data(self, message: str) -> str:
-        return get_sgroup_context(message)
+        return get_sgroup_answer(message)
+
+    async def handle(
+        self,
+        message: str,
+        history: list[dict],
+        external_data: str = "",
+    ) -> str:
+        # Deterministic grounded output: avoid LLM rewriting into fabricated content.
+        _ = (message, history)
+        if external_data:
+            return external_data
+        return (
+            "[DỮ LIỆU SGROUP CHÍNH THỨC]\n"
+            "Chưa có dữ liệu xác thực cho câu hỏi này trong bộ tri thức hiện tại.\n"
+            "Nguồn tham khảo: https://sgroupvn.org/"
+        )

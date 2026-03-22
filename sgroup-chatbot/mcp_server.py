@@ -33,15 +33,33 @@ async def chat(message: str, session_id: str = "default") -> dict:
 
 @mcp.tool()
 async def weather(location: str) -> dict:
-    """Fetch real-time weather by city/location from OpenWeather."""
+    """Fetch current weather by city/location from Visual Crossing timeline API."""
     data = await get_weather(location)
+    current = data.get("currentConditions") or {}
+
+    def f_to_c(value: float | int | str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            return round((float(value) - 32) * 5 / 9, 1)
+        except (TypeError, ValueError):
+            return None
+
+    def mph_to_ms(value: float | int | str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            return round(float(value) * 0.44704, 1)
+        except (TypeError, ValueError):
+            return None
+
     return {
-        "location": f"{data.get('name', '')}, {data.get('sys', {}).get('country', '')}".strip(", "),
-        "temperature_c": data.get("main", {}).get("temp"),
-        "feels_like_c": data.get("main", {}).get("feels_like"),
-        "humidity": data.get("main", {}).get("humidity"),
-        "wind_speed_mps": data.get("wind", {}).get("speed"),
-        "description": (data.get("weather") or [{}])[0].get("description", ""),
+        "location": data.get("resolvedAddress", location),
+        "temperature_c": f_to_c(current.get("temp")),
+        "feels_like_c": f_to_c(current.get("feelslike")),
+        "humidity": current.get("humidity"),
+        "wind_speed_mps": mph_to_ms(current.get("windspeed")),
+        "description": current.get("conditions", ""),
         "raw": data,
     }
 
