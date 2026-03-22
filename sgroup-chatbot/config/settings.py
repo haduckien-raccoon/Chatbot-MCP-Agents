@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     # GitHub (optional, for IT knowledge agent)
     github_personal_access_token: str = ""
 
+    # External MCP servers (optional, for IT knowledge agent)
+    external_mcp_enabled: bool = False
+    external_mcp_config_path: str = "mcp-external-servers.json"
+    external_mcp_timeout_ms: int = 15000
+
     # Knowledge base path
     data_dir: str = "../data"
 

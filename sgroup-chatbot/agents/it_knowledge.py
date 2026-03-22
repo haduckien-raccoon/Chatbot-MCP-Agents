@@ -7,6 +7,7 @@ from agents.base import BaseAgent
 from config.settings import settings
 from services.brave_service import brave_search
 from services.exa_service import exa_search
+from services.external_mcp_service import search_external_it_context
 from services.youtube_service import youtube_search_recent
 
 
@@ -29,6 +30,7 @@ Tra loi chuyen nghiep nhung de hieu.
 """
 
     async def fetch_data(self, message: str) -> str:
+        mcp_task = search_external_it_context(message) if settings.external_mcp_enabled else None
         exa_task = exa_search(message, num=6) if settings.exa_api_key else None
         brave_task = brave_search(message, count=6) if settings.brave_api_key else None
         brave_youtube_task = (
@@ -41,7 +43,7 @@ Tra loi chuyen nghiep nhung de hieu.
 
         pending = [
             t
-            for t in [exa_task, brave_task, brave_youtube_task, *youtube_tasks]
+            for t in [mcp_task, exa_task, brave_task, brave_youtube_task, *youtube_tasks]
             if t is not None
         ]
         if not pending:
@@ -49,11 +51,17 @@ Tra loi chuyen nghiep nhung de hieu.
 
         gathered = await asyncio.gather(*pending, return_exceptions=True)
 
+        mcp_text = ""
         exa_items: list[dict] = []
         brave_items: list[dict] = []
         youtube_items: list[dict] = []
 
         index = 0
+        if mcp_task is not None:
+            value = gathered[index]
+            if isinstance(value, str):
+                mcp_text = value.strip()
+            index += 1
         if exa_task is not None:
             value = gathered[index]
             if isinstance(value, list):
@@ -88,6 +96,9 @@ Tra loi chuyen nghiep nhung de hieu.
         brave_items = self._dedupe_by_url(brave_items)[:6]
 
         sections: list[str] = ["[KET QUA IT DA NGUON]"]
+
+        if mcp_text:
+            sections.append(mcp_text)
 
         if youtube_items:
             top_n = min(10, len(youtube_items))
