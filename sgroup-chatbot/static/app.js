@@ -14,6 +14,53 @@ const divider = document.getElementById("divider");
 const webPanel = document.getElementById("webPanel");
 
 const URL_RE = /(https?:\/\/[^\s<]+[^\s<.,;:!?])/gi;
+const YOUTUBE_URL_RE = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{8,15})[^\s<]*/gi;
+
+function extractYoutubeIds(text) {
+  const ids = [];
+  if (!text) {
+    return ids;
+  }
+
+  const matched = text.matchAll(YOUTUBE_URL_RE);
+  for (const m of matched) {
+    const id = (m[1] || "").trim();
+    if (!id || ids.includes(id)) {
+      continue;
+    }
+    ids.push(id);
+    if (ids.length >= 10) {
+      break;
+    }
+  }
+
+  return ids;
+}
+
+function buildYoutubeEmbeds(content) {
+  const ids = extractYoutubeIds(content);
+  if (!ids.length) {
+    return "";
+  }
+
+  const cards = ids
+    .map(
+      (id) => `
+      <div class="yt-card">
+        <iframe
+          src="https://www.youtube.com/embed/${id}"
+          title="YouTube video ${id}"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+        ></iframe>
+      </div>`
+    )
+    .join("");
+
+  return `<div class="yt-grid">${cards}</div>`;
+}
 
 function renderBubble(role, content, agentUsed) {
   if (agentUsed && role === "bot") {
@@ -26,10 +73,11 @@ function renderBubble(role, content, agentUsed) {
   const wrap = document.createElement("div");
   wrap.className = `msg ${role}`;
   const avatarLabel = role === "user" ? "Ban" : "SG";
+  const youtubeEmbeds = role === "bot" ? buildYoutubeEmbeds(content) : "";
   wrap.innerHTML = `
     <div class="msg-avatar">${avatarLabel}</div>
     <div class="msg-content">
-      <div class="bubble">${md(content)}</div>
+      <div class="bubble">${md(content)}${youtubeEmbeds}</div>
     </div>`;
 
   messagesEl.appendChild(wrap);

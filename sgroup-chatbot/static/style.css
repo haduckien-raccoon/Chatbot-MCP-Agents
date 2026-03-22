@@ -242,6 +242,27 @@ body {
   border-bottom-color: rgba(191, 219, 254, 0.9);
 }
 
+.yt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.yt-card {
+  background: #0f1322;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.yt-card iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  display: block;
+}
+
 .typing .bubble {
   display: flex;
   gap: 5px;
@@ -497,5 +518,9 @@ body {
 
   .web-panel {
     min-height: 40vh;
+  }
+
+  .yt-grid {
+    grid-template-columns: 1fr;
   }
 }

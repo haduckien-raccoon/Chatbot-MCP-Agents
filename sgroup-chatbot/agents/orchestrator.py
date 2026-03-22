@@ -106,6 +106,15 @@ class Orchestrator:
         clauses = [p.strip() for p in parts if p and p.strip()]
         return clauses if len(clauses) > 1 else [message.strip()]
 
+    def _is_internal_sgroup_query(self, normalized_message: str) -> bool:
+        return bool(
+            re.search(
+                r"\b(sgroup|s-group|chu nhiem|pho chu nhiem|ban van hanh|ban noi bo|ban truyen thong|truong chuyen mon|ve chung toi|tuyen thanh vien|so do to chuc)\b",
+                normalized_message,
+                re.IGNORECASE,
+            )
+        )
+
     def _collect_fast_intents(self, normalized_message: str) -> list[str]:
         intents: list[str] = []
 
@@ -150,6 +159,11 @@ class Orchestrator:
             re.IGNORECASE,
         ):
             intents.append("it_knowledge")
+
+        # Guardrail: internal SGroup questions often contain words like 'lap trinh',
+        # but they should stay in sgroup_knowledge to avoid irrelevant IT search results.
+        if self._is_internal_sgroup_query(normalized_message):
+            intents = [x for x in intents if x != "it_knowledge"]
 
         if len(intents) > 1 and "general" in intents:
             intents = [x for x in intents if x != "general"]
